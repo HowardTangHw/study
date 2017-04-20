@@ -2367,10 +2367,81 @@ Vue.component('child2',{
     props:['items'],//一定要写,这个是从父组件传入的数据
     template:'\
     <ul>\
-    //与父组件绑定的slot名,v-bind:text的是父组件每一项的.text,并将这个然后v-bind:text,这个text对象传递到scope的临时变量里\
+    //与父组件绑定的slot名,v-bind:text的是父组件每一项的.text,并将这个然后v-bind:text,这个text对象传递到scope的临时变量里\  
     <slot name="data" v-for="data in items" v-bind:text="data.text"></slot>\
     </ul>'
 });
 ```
 
 #### 动态组件
+- 通过使用保留的`<component>`元素,动态地帮到它的`is`特性,我们让多个组件可以使用同一个挂在点,并动态切换:
+```html
+<!--这个is是一个字符串,根据返回值来给组件进行v-bind-->
+<component v-bind:is="currentView">
+  <!-- 组件在 vm.currentview 变化时改变！ -->
+</component>
+```
+```javascript
+var vm = new Vue({
+  el: '#example',
+  data: {
+    currentView: 'home' //默认值
+  },
+  components: { //根据不同的值进行不同的组件切换,这里用components写法
+    home: { /* ... */ }, 
+    posts: { /* ... */ },
+    archive: { /* ... */ }
+  }
+})
+```
+
+- 也可以直接绑定到组件对象上：
+```javascript
+var Home = {
+  template: '<p>Welcome home!</p>'
+}
+var vm = new Vue({
+  el: '#example',
+  data: {
+    currentView: Home
+  }
+})
+```
+
+##### keep-alive
+
+- 如果把切换出去的组件保留在内存中，可以保留它的状态或避免重新渲染。为此可以添加一个 keep-alive 指令参数
+
+```html
+<keep-alive>
+  <component :is="currentView">
+    <!-- 非活动组件将被缓存！ -->
+  </component>
+</keep-alive>
+```
+
+#### 杂项
+
+##### 编写可复用组件
+- 在编写组件时，记住是否要复用组件有好处。一次性组件跟其它组件紧密耦合没关系，但是可复用组件应当定义一个清晰的公开接口。
+
+- Vue组件的API来自三部分-props,events和slots:
+    + Props 允许外部环境传递数据给组件
+    + Events 允许组件触发外部环境的副作用
+    + Slots 允许外部环境将额外的内容组合在组件中(分发)
+
+- 使用 v-bind 和 v-on 的简写语法，模板的缩进清楚且简洁：
+```html
+<!--v-bind,缩写:,绑定prop-->
+<!--v-on,缩写@,监听事件-->
+<!--slot插槽-->
+<my-component
+  :foo="baz"  
+  :bar="qux"
+  @event-a="doThis"
+  @event-b="doThat"
+>
+  <img slot="icon" src="...">
+  <p slot="main-text">Hello!</p>
+</my-component>
+```
