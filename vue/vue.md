@@ -2445,3 +2445,116 @@ var vm = new Vue({
   <p slot="main-text">Hello!</p>
 </my-component>
 ```
+
+##### 子组件索引
+- 尽管有props和events,但是有时仍然需要在js中直接访问子组件。为此可以使用`ref`为子组件指定一个索引ID
+```html
+<div id="parent">
+    <user-profile ref="profile"></user-profile>
+</div>
+```
+
+```javascript
+ var parent = new Vue({
+    el:'#parent'
+ })
+ var child = paren.$refs.profile;
+```
+- 当`ref`和`v-for`一起使用时,ref是一个数组或对象,包含相应的子组件.
+- `$refs`只在组件渲染完成后才填充,并且它是非响应式的.它仅仅作为一个直接访问子组件的应急方案--应当避免在模板或计算属性中使用`$refs`
+
+
+##### 异步组件(跳过)
+
+- 在大型的应用中,我们可能需要将应用拆分为多个小模板,按需从服务器下载,Vue.js允许将组件定义为一个工厂函数,动态地解析组件的定义。
+- Vue.js 只在组件需要渲染时触发工厂函数，并且把结果缓存起来，用于后面的再次渲染。
+```javascript
+Vue.component('async-example', function (resolve, reject) {
+  setTimeout(function () {
+    // Pass the component definition to the resolve callback
+    resolve({
+      template: '<div>I am async!</div>'
+    })
+  }, 1000)
+})
+```
+
+- 工厂函数接收一个 resolve 回调，在收到从服务器下载的组件定义时调用。也可以调用 reject(reason) 指示加载失败。这里 setTimeout 只是为了演示。怎么获取组件完全由你决定。推荐配合使用 ：Webpack 的代码分割功能：
+
+```javascript
+Vue.component('async-webpack-example', function (resolve) {
+  // 这个特殊的 require 语法告诉 webpack
+  // 自动将编译后的代码分割成不同的块，
+  // 这些块将通过 Ajax 请求自动下载。
+  require(['./my-async-component'], resolve)
+})
+```
+
+- 你可以使用 Webpack 2 + ES2015 的语法返回一个 Promise resolve 函数：
+
+```javascript
+Vue.component(
+  'async-webpack-example',
+  () => import('./my-async-component')
+)
+```
+
+- 如果你是 Browserify 用户,可能就无法使用异步组件了,它的作者已经表明 Browserify 是不支持异步加载的。Browserify 社区发现 一些解决方法，可能有助于已存在的复杂应用。对于其他场景，我们推荐简单实用 Webpack 构建，一流的异步支持
+
+##### 组件命名约定
+
+- 当注册组件（或者 props）时，可以使用 kebab-case ，camelCase ，或 TitleCase 。Vue 不关心这个。
+```javascript
+// 在组件定义中
+components: {
+  // 使用 kebab-case 形式注册
+  'kebab-cased-component': { /* ... */ },
+  // register using camelCase
+  'camelCasedComponent': { /* ... */ },
+  // register using TitleCase
+  'TitleCasedComponent': { /* ... */ }
+}
+```
+
+- 在 HTML 模版中，请使用 `kebab-case` 形式：
+```html
+<!-- 在HTML模版中始终使用 kebab-case -->
+<kebab-cased-component></kebab-cased-component>
+<camel-cased-component></camel-cased-component>
+<title-cased-component></title-cased-component>
+```
+
+- 当使用字符串模式时，可以不受 HTML 的 case-insensitive 限制。这意味实际上在模版中，你可以使用 camelCase 、 TitleCase 或者 kebab-case 来引用：
+
+```html
+<!-- 在字符串模版中可以用任何你喜欢的方式! -->
+<my-component></my-component>
+<myComponent></myComponent>
+<MyComponent></MyComponent>
+```
+
+- 如果组件未经 slot 元素传递内容，你甚至可以在组件名后使用 / 使其自闭合：
+```html
+<my-component/>
+```
+- 当然，这只在字符串模版中有效。因为自闭的自定义元素是无效的 HTML ，浏览器原生的解析器也无法识别它。
+
+
+##### 递归组件
+
+- 组件在它的模板内可以递归地调用自己，不过，只有当它有 name 选项时才可以
+
+- 当你利用Vue.component全局注册了一个组件, 全局的ID作为组件的 name 选项，被自动设置.
+
+```javascript
+//组件可以用name来写名字
+name: 'unique-name-of-my-component'
+//也可以在创建的时候默认添加名字,全局的ID作为组件的 name 选项，被自动设置.
+Vue.component('unique-name-of-my-component', {
+  // ...
+})
+//如果同时使用的话,递归的时候就会不断递归自己,导致溢出
+name: 'stack-overflow',
+template: '<div><stack-overflow></stack-overflow></div>'
+```
+- 上面组件会导致一个错误 “max stack size exceeded” ，所以要确保递归调用有终止条件 (比如递归调用时使用 v-if 并让他最终返回 false )。
