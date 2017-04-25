@@ -2558,3 +2558,76 @@ name: 'stack-overflow',
 template: '<div><stack-overflow></stack-overflow></div>'
 ```
 - 上面组件会导致一个错误 “max stack size exceeded” ，所以要确保递归调用有终止条件 (比如递归调用时使用 v-if 并让他最终返回 false )。
+
+##### 组件间的循环引用Circular References Between Components
+- 假设你正在构建一个文件目录树，像在Finder或文件资源管理器中。你可能有一个 tree-folder组件:
+```html
+<p>
+  <span>{{ folder.name }}</span>
+  <tree-folder-contents :children="folder.children"/>
+</p>
+```
+- 然后一个tree-folder-contents组件
+```html
+<ul>
+  <li v-for="child in children">
+    <tree-folder v-if="child.children" :folder="child"/>
+    <span v-else>{{ child.name }}</span>
+  </li>
+</ul>
+```
+
+- 当你仔细看时，会发现在渲染树上这两个组件同时为对方的父节点和子节点–这点是矛盾的。当使用Vue.component将这两个组件注册为全局组件的时候，框架会自动为你解决这个矛盾，如果你是这样做的，就不用继续往下看了。
+- 然而，如果你使用诸如Webpack或者Browserify之类的模块化管理工具来requiring/importing组件的话，就会报错了：
+    + Failed to mount component: template or render function not defined.
+
+- 为了解释为什么会报错，简单的将上面两个组件称为 A 和 B ，模块系统看到它需要 A ，但是首先 A 需要 B ，但是 B 需要 A， 而 A 需要 B，陷入了一个无限循环，因此不知道到底应该先解决哪个。要解决这个问题，我们需要在其中一个组件中（比如 A ）告诉模块化管理系统，“A 虽然需要 B ，但是不需要优先导入 B”
+
+- 在我们的例子中，我们选择在tree-folder 组件中来告诉模块化管理系统循环引用的组件间的处理优先级，我们知道引起矛盾的子组件是tree-folder-contents，所以我们在beforeCreate 生命周期钩子中去注册它：
+```javascript
+beforeCreate: function () {
+  this.$options.components.TreeFolderContents = require('./tree-folder-contents.vue')
+}
+```
+
+##### 内联模板
+- 如果子组件有inline-template特性(属性),那么组件将把它的内容当作它的模板,而不是把它当作分发内容.
+```html
+<my-component inline-template>
+  <div>
+    <p>These are compiled as the component's own template.</p>
+    <p>Not parent's transclusion content.</p>
+  </div>
+</my-component>
+```
+
+- 但是 inline-template(特性) 让模板的作用域难以理解。最好是template 选项在组件内定义模板或者在 .vue 文件中使用 template 元素。
+
+##### X-Templates 
+- 也可以在script标签使用`type="text/x-template"`类型,并且指定一个id,
+```html
+<script type="text/x-template" id="hello-world-template">
+  <p>Hello hello hello</p>
+</script>
+``` 
+```javascript
+Vue.component('hello-world', {
+  template: '#hello-world-template'
+})
+```
+- 在很多模板或者小的应用当中可以使用,也很有用,否则应该避免运用它,因为它将模板和组件的其他定义隔离了。
+
+
+##### 对低开销的静态组件使用 v-once
+
+- 当组件中包含`大量`静态内容时,可以用`v-once`将渲染结果缓存起来
+```javascript
+Vue.component('terms-of-service', {
+  template: '\
+    <div v-once>\
+      <h1>Terms of Service</h1>\
+      ... a lot of static content ...\
+    </div>\
+  '
+})
+```
